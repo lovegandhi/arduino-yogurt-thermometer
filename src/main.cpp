@@ -19,13 +19,16 @@ E |   | C
 #define THERMISTORPIN A0
 #define BUTTONPIN A1
 #define BUZZERPIN A2
-#define THERMISTORNOMINAL 9300  // resistance at 25 degrees C
+#define THERMISTORNOMINAL 216000  // resistance at 25 degrees C
 #define TEMPERATURENOMINAL 25   // temp. for nominal resistance (almost always 25 C)
 #define NUMSAMPLES 5            // how many samples to take and average, more takes longer
-#define BCOEFFICIENT 3380       // The beta coefficient of the thermistor (usually 3000-4000)
+#define BCOEFFICIENT 3680       // The beta coefficient of the thermistor (usually 3000-4000)
 #define SERIESRESISTOR 9000              // resistor value of voltage divider
-#define INTERVAL 1000UL * 10             // interval at which to take a temp measurement
+#define INTERVAL 1000UL * 1             // interval at which to take a temp measurement
 #define BUZZERINTERVAL 1000UL * 60 * 2   // interval at which a buzzer will be reset back to ON - 2 min
+float A = 0.00007622038576;     // "A" Coeffecient in Steinhart-Hart Equation
+float B = 0.0001920436926;      // "B"
+float C = 0.00000001158937821;  // "C"
 
 typedef enum { KOS, PUL, VIC, DER } Menu;                   // menu options
 static char* MenuText[] = { "KOS", "PUL", "VIC", "DER", };  // printable string representation of menu
@@ -121,6 +124,25 @@ void takeTempMeasurement() {
     }
 }
 
+void newTakeTemp() {
+    float vin = 4.711;              //  DC Voltage as measured with DMM between +5V and GND
+
+    float a0 = analogRead(0);                                    // This reads the "voltage" value on A0. Value is actually divided into 1024 steps from 0-1023.
+    float v0 = a0 * .0046;                                       // Converts A0 value to an actual voltage (5.0V / 1024 steps = .0049V/step.
+    float r0 = (((SERIESRESISTOR * vin) / v0) - SERIESRESISTOR); // Calculates resistance value of thermistor based on fixed resistor value and measured voltage
+    float logr0 = log(r0);                                       // Natural log of thermistor resistance used in Steinhart-Hart Equation
+    float logcubed0 = logr0 * logr0 * logr0;                     // The cube of the above value
+    float k0 = 1.0 / (A + (B * logr0) + (C * logcubed0));        // Steinhart-Hart Equation to calculate temperature in Kelvin
+    float f0 = k0 - 273;
+    steinhart = f0;
+    if (isnan(f0))                                               // If value is not a number, assign an arbitrary value
+        Serial.println(int(000));
+    else {
+        Serial.print("measured: ");
+        Serial.println(f0);                                                    // Otherwise use the calculated value
+    }
+}
+
 void setup() {
     Serial.begin(9600);
 
@@ -148,6 +170,9 @@ void loop() {
         previousMillis = currentMillis;
 
         takeTempMeasurement();
+        if (steinhart > 85.0f) {
+            steinhart = steinhart - 10;
+        }
 
         if (menu == KOS) {
             // Milk should be brought up to 90C or 194F and then back down to 49C or 120F
