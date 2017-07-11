@@ -22,7 +22,7 @@ E |   | C
 #define THERMISTORNOMINAL 216000  // resistance at 25 degrees C
 #define TEMPERATURENOMINAL 25   // temp. for nominal resistance (almost always 25 C)
 #define NUMSAMPLES 5            // how many samples to take and average, more takes longer
-#define BCOEFFICIENT 3680       // The beta coefficient of the thermistor (usually 3000-4000)
+#define BCOEFFICIENT 3950       // The beta coefficient of the thermistor (usually 3000-4000)
 #define SERIESRESISTOR 9000              // resistor value of voltage divider
 #define INTERVAL 1000UL * 1             // interval at which to take a temp measurement
 #define BUZZERINTERVAL 1000UL * 60 * 2   // interval at which a buzzer will be reset back to ON - 2 min
