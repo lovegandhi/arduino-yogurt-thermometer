@@ -1,0 +1,2 @@
+Options: 
+CMake: 3.7.2@/Users/Landi/Library/Application Support/JetBrains/Toolbox/apps/CLion/ch-0/171.4694.31/CLion.app/Contents/bin/cmake/bin/cmake

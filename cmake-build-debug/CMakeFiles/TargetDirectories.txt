@@ -1,0 +1,11 @@
+/Users/Landi/Source/Arduino/thermometer/cmake-build-debug/CMakeFiles/rebuild_cache.dir
+/Users/Landi/Source/Arduino/thermometer/cmake-build-debug/CMakeFiles/PLATFORMIO_REBUILD_PROJECT_INDEX.dir
+/Users/Landi/Source/Arduino/thermometer/cmake-build-debug/CMakeFiles/PLATFORMIO_UPDATE_ALL.dir
+/Users/Landi/Source/Arduino/thermometer/cmake-build-debug/CMakeFiles/PLATFORMIO_UPLOADFS.dir
+/Users/Landi/Source/Arduino/thermometer/cmake-build-debug/CMakeFiles/thermometer.dir
+/Users/Landi/Source/Arduino/thermometer/cmake-build-debug/CMakeFiles/PLATFORMIO_BUILD.dir
+/Users/Landi/Source/Arduino/thermometer/cmake-build-debug/CMakeFiles/PLATFORMIO_PROGRAM.dir
+/Users/Landi/Source/Arduino/thermometer/cmake-build-debug/CMakeFiles/PLATFORMIO_TEST.dir
+/Users/Landi/Source/Arduino/thermometer/cmake-build-debug/CMakeFiles/edit_cache.dir
+/Users/Landi/Source/Arduino/thermometer/cmake-build-debug/CMakeFiles/PLATFORMIO_CLEAN.dir
+/Users/Landi/Source/Arduino/thermometer/cmake-build-debug/CMakeFiles/PLATFORMIO_UPLOAD.dir
