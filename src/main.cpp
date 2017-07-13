@@ -148,9 +148,6 @@ void loop() {
         previousMillis = currentMillis;
 
         takeTempMeasurement();
-        if (steinhart > 85.0f) {
-            steinhart = steinhart - 10;
-        }
 
         if (menu == KOS) {
             // Milk should be brought up to 90C or 194F and then back down to 49C or 120F
