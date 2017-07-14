@@ -171,21 +171,21 @@ void loop() {
                 break;
             case PUL:
                 // Chicken 74C 165F
-                if (steinhart > 74f && buzzer == ON) {
+                if (steinhart > 74.0f && buzzer == ON) {
                     digitalWrite(BUZZERPIN, HIGH);
                     if (DEBUG) Serial.println("ALARM: chicken ready");
                 }
                 break;
             case VIC:
                 // Beef Medium 58C 135F
-                if (steinhart > 58f && buzzer == ON) {
+                if (steinhart > 58.0f && buzzer == ON) {
                     digitalWrite(BUZZERPIN, HIGH);
                     if (DEBUG) Serial.println("ALARM: beef ready");
                 }
                 break;
             case DER:
                 // Pork 65C 150F
-                if (steinhart > 65f && buzzer == ON) {
+                if (steinhart > 65.0f && buzzer == ON) {
                     digitalWrite(BUZZERPIN, HIGH);
                     if (DEBUG) Serial.println("ALARM: the other white meat ready");
                 }
