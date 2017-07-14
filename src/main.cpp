@@ -19,10 +19,10 @@ E |   | C
 #define THERMISTORPIN A0
 #define BUTTONPIN A1
 #define BUZZERPIN A2
-#define THERMISTORNOMINAL 9300  // resistance at 25 degrees C
-#define TEMPERATURENOMINAL 25   // temp. for nominal resistance (almost always 25 C)
-#define NUMSAMPLES 5            // how many samples to take and average, more takes longer
-#define BCOEFFICIENT 3380       // The beta coefficient of the thermistor (usually 3000-4000)
+#define THERMISTORNOMINAL 216000  // resistance at 25 degrees C
+#define TEMPERATURENOMINAL 25     // temp. for nominal resistance (almost always 25 C)
+#define NUMSAMPLES 5              // how many samples to take and average, more takes longer
+#define BCOEFFICIENT 4068.8       // The beta coefficient of the thermistor (usually 3000-4000)
 #define SERIESRESISTOR 9000              // resistor value of voltage divider
 #define INTERVAL 1000UL * 10             // interval at which to take a temp measurement
 #define BUZZERINTERVAL 1000UL * 60 * 2   // interval at which a buzzer will be reset back to ON - 2 min
@@ -149,35 +149,50 @@ void loop() {
 
         takeTempMeasurement();
 
-        if (menu == KOS) {
-            // Milk should be brought up to 90C or 194F and then back down to 49C or 120F
-            // If you introduce yogurt to higher than 49C or 120F it will kill all its cultures
-            // Bringing the milk to almost a boil is not entirely necessary because every Milk
-            // sold in stores will already be pasteurized. I do this because I have had better Yogurt done this way.
-            if (steinhart > 49.0f) {
-                hasMilkWarmedUp = true;
-                if (DEBUG) Serial.println("milk has warmed up");
-            }
-            if (steinhart > 90.0f) {
-                // ring alarm, milk is hot enough for pasteurization
-                if (buzzer == ON) {
+        switch (menu) {
+            case KOS:
+                // Milk should be brought up to 90C or 194F and then back down to 49C or 120F
+                // If you introduce yogurt to higher than 49C or 120F it will kill all its cultures
+                // Bringing the milk to almost a boil is not entirely necessary because every Milk
+                // sold in stores will already be pasteurized. I do this because I have had better Yogurt done this way.
+                if (steinhart > 49.0f) {
+                    hasMilkWarmedUp = true;
+                    if (DEBUG) Serial.println("milk has warmed up");
+                }
+                if (steinhart > 90.0f && buzzer == ON) {
+                    // ring alarm, milk is hot enough for pasteurization
                     digitalWrite(BUZZERPIN, HIGH);
                     if (DEBUG) Serial.println("ALARM:pasteurized");
-                }
-            } else if (hasMilkWarmedUp && steinhart < 49.0f) {
-                // ring alarm, milk has cooled down enough
-                if (buzzer == ON) {
+                } else if (hasMilkWarmedUp && steinhart < 49.0f && buzzer == ON) {
+                    // ring alarm, milk has cooled down enough
                     digitalWrite(BUZZERPIN, HIGH);
                     if (DEBUG) Serial.println("ALARM:ready for yogurt culture");
                 }
-            }
-
-        } else if (menu == PUL) {
-            // Chicken 74C 165F
-        } else if (menu == VIC) {
-            // Beef Medium 58C 135F
-        } else if (menu == DER) {
-            // Pork 65C 150F
+                break;
+            case PUL:
+                // Chicken 74C 165F
+                if (steinhart > 74f && buzzer == ON) {
+                    digitalWrite(BUZZERPIN, HIGH);
+                    if (DEBUG) Serial.println("ALARM: chicken ready");
+                }
+                break;
+            case VIC:
+                // Beef Medium 58C 135F
+                if (steinhart > 58f && buzzer == ON) {
+                    digitalWrite(BUZZERPIN, HIGH);
+                    if (DEBUG) Serial.println("ALARM: beef ready");
+                }
+                break;
+            case DER:
+                // Pork 65C 150F
+                if (steinhart > 65f && buzzer == ON) {
+                    digitalWrite(BUZZERPIN, HIGH);
+                    if (DEBUG) Serial.println("ALARM: the other white meat ready");
+                }
+                break;
+            default:
+                Serial.println("OH NOS");
+                break;
         }
     }
 
