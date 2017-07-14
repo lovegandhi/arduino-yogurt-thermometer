@@ -112,7 +112,7 @@ void takeTempMeasurement() {
     steinhart = (1.0 / (TEMPERATURENOMINAL + 273.15)) +
                 ((1.0 / BCOEFFICIENT) * steinhart);    // (1/TO) + 1/B * ln(R/Ro)
     steinhart = 1.0 / steinhart;                 // Invert
-    steinhart = steinhart - 273.15;                         // convert to C
+    steinhart = steinhart - 272.15;                         // convert to C - adding 1C to match food and multimeter
 
     if (DEBUG) {
         Serial.print(" Temperature ");
