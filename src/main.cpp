@@ -11,75 +11,53 @@ E |   | C
     D
  */
 
-#include <Arduino.h>
-#include <SevSeg.h>
-#include <OneButton.h>
+#include "Arduino.h"
+#include "OneButton.h"
+#include "math.h"
 
 #define DEBUG 1
 #define THERMISTORPIN A0
 #define BUTTONPIN A1
-#define BUZZERPIN A2
+#define BUZZERPIN A2  // A2
+#define MOSFETPIN A3
+#define ADCVOLT   A6
+
 #define THERMISTORNOMINAL 216000  // resistance at 25 degrees C
 #define TEMPERATURENOMINAL 25     // temp. for nominal resistance (almost always 25 C)
-#define NUMSAMPLES 5              // how many samples to take and average, more takes longer
-#define BCOEFFICIENT 4068.8       // The beta coefficient of the thermistor (usually 3000-4000)
-#define SERIESRESISTOR 9000              // resistor value of voltage divider
-#define INTERVAL 1000UL * 10             // interval at which to take a temp measurement
-#define BUZZERINTERVAL 1000UL * 60 * 2   // interval at which a buzzer will be reset back to ON - 2 min
+#define NUMSAMPLES 20             // how many samples to take and average, more takes longer
+#define BCOEFFICIENT 4168.8       // The beta coefficient of the thermistor (usually 3000-4000)
+#define SERIESRESISTOR 9000             // resistor value of voltage divider
+#define INTERVAL 1000UL * 2             // interval at which to take a temp measurement
+#define BUZZERINTERVAL 1000UL * 60 * 2  // interval at which a buzzer will be reset back to ON - 2 min
+#define IDLEINTERVAL 1000UL * 60 * 5    // interval at which we'll keep the thermometer running without temp change
 
-typedef enum { KOS, PUL, VIC, DER } Menu;                   // menu options
-static char* MenuText[] = { "KOS", "PUL", "VIC", "DER", };  // printable string representation of menu
 typedef enum { ON, OFF } Buzzer;                            // buzzer options
 
 int samples[NUMSAMPLES];
-float steinhart;
-unsigned long previousMillis = 0;     // will store last time a temp measurement was updated
-unsigned long buzzerMillis = 0;       // will store last time a buzzer was reset
+unsigned long previousMillis = 0; // will store last time a temp measurement was updated
+unsigned long buzzerMillis = 0;   // will store last time a buzzer was reset
+unsigned long idleMillis = 0;   // will store last time a idle was reset
 bool hasMilkWarmedUp = false;
-
-Menu menu = KOS;                // Default menu to KOS when we start
-OneButton button(BUTTONPIN, 1);        // button when pressed will take A1 to ground, active low
-Buzzer buzzer = ON;            // Initial buzzer status; allow the buzzer to sound by default
-SevSeg sevseg;
-
-
-/*
- * Callback that changes the menu state. Default will start at KOS and with each
- * new long press it will cycle through the menu options.
- */
-void changeMenu_longPressStart() {
-    if (menu == KOS) menu = PUL;
-    else if (menu == PUL) menu = VIC;
-    else if (menu == VIC) menu = DER;
-    else if (menu == DER) menu = KOS;
-
-    for (int i = 0; i < 1000; ++i) {
-        sevseg.setChars(MenuText[menu]);
-        sevseg.refreshDisplay();
-        delay(1);
-    }
-    for (int j = 0; j < 500; ++j) {
-        sevseg.setChars("   -");
-        sevseg.refreshDisplay();
-        delay(1);
-    }
-}
+OneButton button(BUTTONPIN, 1);   // button when pressed will take A1 to ground, active low
+Buzzer buzzer = ON;               // Initial buzzer status; allow the buzzer to sound by default
+float oldTemperatureValue = 0.0;        // keep track of previous temperature value
+bool firstRun = true;
 
 void toggleBuzzer_singlePress() {
     if (buzzer == ON) {
         buzzer = OFF;
-        hasMilkWarmedUp = false;
-        Serial.println("Buzzer: OFF");
+        if (DEBUG) Serial.println("Buzzer: OFF");
     }
     else {
         buzzer = ON;
-        Serial.println("Buzzer: ON");
+        if (DEBUG) Serial.println("Buzzer: ON");
     }
 }
 
-void takeTempMeasurement() {
+float takeTempMeasurement() {
     uint8_t i;
     float average;
+    float steinhart;
 
     // take N samples in a row, with a slight delay
     for (i = 0; i < NUMSAMPLES; i++) {
@@ -108,32 +86,66 @@ void takeTempMeasurement() {
         Serial.print(average);
     }
 
-    steinhart = log(average / THERMISTORNOMINAL);       // log(R/Ro)
+    steinhart = log(average / THERMISTORNOMINAL);      // log(R/Ro)
     steinhart = (1.0 / (TEMPERATURENOMINAL + 273.15)) +
                 ((1.0 / BCOEFFICIENT) * steinhart);    // (1/TO) + 1/B * ln(R/Ro)
-    steinhart = 1.0 / steinhart;                 // Invert
-    steinhart = steinhart - 272.15;                         // convert to C - adding 1C to match food and multimeter
+    steinhart = 1.0 / steinhart;                       // Invert
+    steinhart = steinhart - 273.15;
 
     if (DEBUG) {
         Serial.print(" Temperature ");
         Serial.print(steinhart);
         Serial.println(" *C");
     }
+    return steinhart;
+}
+
+float readBatteryVoltage() {
+    // Read 1.1V reference against AVcc
+    // set the reference to Vcc and the measurement to the internal 1.1V reference
+    #if defined(__AVR_ATmega32U4__) || defined(__AVR_ATmega1280__) || defined(__AVR_ATmega2560__)
+        ADMUX = _BV(REFS0) | _BV(MUX4) | _BV(MUX3) | _BV(MUX2) | _BV(MUX1);
+    #elif defined (__AVR_ATtiny24__) || defined(__AVR_ATtiny44__) || defined(__AVR_ATtiny84__)
+        ADMUX = _BV(MUX5) | _BV(MUX0);
+    #elif defined (__AVR_ATtiny25__) || defined(__AVR_ATtiny45__) || defined(__AVR_ATtiny85__)
+        ADMUX = _BV(MUX3) | _BV(MUX2);
+    #else
+        ADMUX = _BV(REFS0) | _BV(MUX3) | _BV(MUX2) | _BV(MUX1);
+    #endif
+
+    delay(2); // Wait for Vref to settle
+    ADCSRA |= _BV(ADSC); // Start conversion
+    while (bit_is_set(ADCSRA,ADSC)); // measuring
+
+    uint8_t low  = ADCL; // must read ADCL first - it then locks ADCH
+    uint8_t high = ADCH; // unlocks both
+
+    float result = (high<<8) | low;
+
+    result = 0.97 * 1023 / result; // Calculate Vcc (in mV); 1125300 = 1.1*1023*1000
+
+    int average = 0;
+    for (int i=0; i < 20; i++) {
+        average += + analogRead(ADCVOLT);
+    }
+    int sensorValue = average/20;
+    // Convert the analog reading (which goes from 0 - 1023) to a voltage (0 - 5V):
+    float voltage = sensorValue * (result / 1023.0) * 2.2; // 2.2 for taking into account the resistor divider
+    return voltage;
 }
 
 void setup() {
-    Serial.begin(9600);
-
+    pinMode(MOSFETPIN, OUTPUT);
+    digitalWrite(MOSFETPIN, HIGH);  // keep mosfet ON
     pinMode(BUZZERPIN, OUTPUT);
 
-    byte numberOfDigits = 4;
-    byte digitPins[] = {10, 11, 12, 13};
-    byte segmentPins[] = {2, 3, 4, 5, 6, 7, 8, 9};
+    Serial.begin(9600);
+    for (int i = 0; i < 10; i++) {  // throw away first 10 readings
+        analogRead(ADCVOLT);
+        delay(1);
+    }
 
-    sevseg.begin(COMMON_ANODE, numberOfDigits, digitPins, segmentPins);
-    sevseg.setBrightness(50);
-
-    button.attachLongPressStart(changeMenu_longPressStart);
+    // button.attachLongPressStart(changeMenu_longPressStart);
     button.attachClick(toggleBuzzer_singlePress);
 
     // take initial reading
@@ -143,56 +155,45 @@ void setup() {
 void loop() {
     button.tick();
     unsigned long currentMillis = millis();
+    float steinhart;
 
     if (currentMillis - previousMillis >= INTERVAL) {
         previousMillis = currentMillis;
 
-        takeTempMeasurement();
+        steinhart = takeTempMeasurement();
 
-        switch (menu) {
-            case KOS:
-                // Milk should be brought up to 90C or 194F and then back down to 49C or 120F
-                // If you introduce yogurt to higher than 49C or 120F it will kill all its cultures
-                // Bringing the milk to almost a boil is not entirely necessary because every Milk
-                // sold in stores will already be pasteurized. I do this because I have had better Yogurt done this way.
-                if (steinhart > 49.0f) {
-                    hasMilkWarmedUp = true;
-                    if (DEBUG) Serial.println("milk has warmed up");
+        // Milk should be brought up to 90C or 194F and then back down to 49C or 120F
+        // If you introduce yogurt to higher than 49C or 120F it will kill all its cultures
+        // Bringing the milk to almost a boil is not entirely necessary because every Milk
+        // sold in stores will already be pasteurized. I do this because I have had better Yogurt done this way.
+        if (steinhart > 90.0f && buzzer == ON) {
+            // ring alarm, milk is hot enough for pasteurization
+            digitalWrite(BUZZERPIN, HIGH);
+            hasMilkWarmedUp = true;
+            if (DEBUG) Serial.println("ALARM:pasteurized");
+        } else if (hasMilkWarmedUp && steinhart < 51.0f && buzzer == ON) {
+            // ring alarm, milk has cooled down enough
+            digitalWrite(BUZZERPIN, HIGH);
+            if (DEBUG) Serial.println("ALARM:ready for yogurt culture");
+        }
+        if (DEBUG) {
+            Serial.print("Battery voltage: ");
+            Serial.println(readBatteryVoltage(), 2);
+        }
+
+        if (currentMillis - idleMillis >= IDLEINTERVAL) {
+            idleMillis = currentMillis;
+            if (!firstRun) {
+                float diff = fabs(steinhart - oldTemperatureValue);
+                if (diff <= 2.0f) {
+                    // if temp has not changed 2 degrees in 5 min then we are not measuring anything
+                    digitalWrite(MOSFETPIN, LOW);
                 }
-                if (steinhart > 90.0f && buzzer == ON) {
-                    // ring alarm, milk is hot enough for pasteurization
-                    digitalWrite(BUZZERPIN, HIGH);
-                    if (DEBUG) Serial.println("ALARM:pasteurized");
-                } else if (hasMilkWarmedUp && steinhart < 49.0f && buzzer == ON) {
-                    // ring alarm, milk has cooled down enough
-                    digitalWrite(BUZZERPIN, HIGH);
-                    if (DEBUG) Serial.println("ALARM:ready for yogurt culture");
-                }
-                break;
-            case PUL:
-                // Chicken 74C 165F
-                if (steinhart > 74.0f && buzzer == ON) {
-                    digitalWrite(BUZZERPIN, HIGH);
-                    if (DEBUG) Serial.println("ALARM: chicken ready");
-                }
-                break;
-            case VIC:
-                // Beef Medium 58C 135F
-                if (steinhart > 58.0f && buzzer == ON) {
-                    digitalWrite(BUZZERPIN, HIGH);
-                    if (DEBUG) Serial.println("ALARM: beef ready");
-                }
-                break;
-            case DER:
-                // Pork 65C 150F
-                if (steinhart > 65.0f && buzzer == ON) {
-                    digitalWrite(BUZZERPIN, HIGH);
-                    if (DEBUG) Serial.println("ALARM: the other white meat ready");
-                }
-                break;
-            default:
-                Serial.println("OH NOS");
-                break;
+            }
+            if (firstRun) {
+                firstRun = false;
+            }
+            oldTemperatureValue = steinhart;
         }
     }
 
@@ -205,7 +206,4 @@ void loop() {
         buzzer = ON;
         if (DEBUG) Serial.println("Buzzer: RESET TO ON");
     }
-
-    sevseg.setNumber(steinhart, 1);
-    sevseg.refreshDisplay();
 }
