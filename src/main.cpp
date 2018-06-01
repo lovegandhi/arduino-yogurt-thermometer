@@ -29,7 +29,7 @@ E |   | C
 #define SERIESRESISTOR 9000             // resistor value of voltage divider
 #define INTERVAL 1000UL * 2             // interval at which to take a temp measurement
 #define BUZZERINTERVAL 1000UL * 60 * 2  // interval at which a buzzer will be reset back to ON - 2 min
-#define IDLEINTERVAL 1000UL * 60 * 5    // interval at which we'll keep the thermometer running without temp change
+#define IDLEINTERVAL 1000UL * 60 * 15   // interval at which we'll keep the thermometer running without temp change
 
 typedef enum { ON, OFF } Buzzer;                            // buzzer options
 
